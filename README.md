@@ -1,5 +1,5 @@
 ## LabCorp
-This repository has a Python script to process LabCorp PDF reports, parse out the significant health metrics, and render them in convenient summaries using a style of your choosing.
+This repository has a Python script to process [LabCorp PDF reports](https://patient.labcorp.com/portal/dashboard), parse out the significant health metrics, and render them in convenient summaries using a style of your choosing.
 
 ### Syntax
 ```commandline
