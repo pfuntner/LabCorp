@@ -156,6 +156,7 @@ test_names = [
   'Creatinine',
   'eGFR If NonAfricn Am',
   'eGFR If Africn Am',
+  'eGFR', # this must appear after the previous ones so it will only match if the others do not
   'BUN/Creatinine Ratio',
   'Sodium',
   'Potassium',
@@ -175,6 +176,7 @@ test_names = [
   'HDL Cholesterol',
   'VLDL Cholesterol Cal',
   'LDL Cholesterol Calc',
+  'LDL Chol Calc (NIH)',
 ]
 
 def parse_test(pos, text):
@@ -222,10 +224,10 @@ def parse_regex(pos, text, pattern):
   """
 
   log.debug(f'parse_regex() returning ({pos}, {ret!r})')
-  return (pos, spaces.sub(' ', ret) if ret else ret)
+  return (pos, spaces.sub(' ', ret).replace('-', ' - ') if ret else ret)
 
 """
-Old reports:
+Style 0, 2019-09-xx:
   Rendering:
     Tests                  Result  Flag     Units     Reference Interval  Lab
     Glucose                    99           mg/dL          65 - 99         01
@@ -336,7 +338,49 @@ Old reports:
     000000002444 '0.0'
     000000002450 '1.2'
     000000002454 '01'
+
+Style 1: 2021-11-xx:
+  Rendering:
+    Comp. Metabolic Panel (14)
+          Test                                                Current Result and Flag             Previous Result and Date                       Units               Reference Interval
+          Glucose 01                                           86                                   91*                07/12/2022               mg/dL                       70-99
+          BUN 01                                               10                                    12                07/12/2022               mg/dL                       8-27
+          Creatinine      01
+                                                              0.81                                  0.97               07/12/2022               mg/dL                    0.76-1.27
+          eGFR                                                 101                                   89                07/12/2022           mL/min/1.73                      >59
+          BUN/Creatinine Ratio                                 12                                    12                07/12/2022                                           10-24
+          Sodium 01                                            136                                  133                07/12/2022              mmol/L                     134-144
+          Potassium 01                                         4.8                                   5.0               07/12/2022              mmol/L                      3.5-5.2
+          Chloride 01                                          99                                    94                07/12/2022              mmol/L                      96-106
+          Carbon Dioxide, Total 01                             21                                    18                07/12/2022              mmol/L                       20-29
+          Calcium    01
+                                                               9.4                                   9.4               07/12/2022               mg/dL                     8.6-10.2
+          Protein, Total 01                                    6.8                                   6.8               07/12/2022                g/dL                      6.0-8.5
+          Albumin    01
+                                                               4.7                                   4.6               07/12/2022                g/dL                      3.8-4.9
+          Globulin, Total                                      2.1                                   2.2               07/12/2022                g/dL                      1.5-4.5
+          A/G Ratio                                            2.2                                   2.1               07/12/2022                                          1.2-2.2
+          Bilirubin, Total 01                                  0.5                                   0.6               07/12/2022               mg/dL                      0.0-1.2
+          Alkaline Phosphatase 01                              95                                    93                07/12/2022                 IU/L                     44-121
+          AST (SGOT)       01
+                                                               16                                    18                07/12/2022                 IU/L                      0-40
+          ALT (SGPT) 01                                        14                                    16                07/12/2022                 IU/L                      0-44
+    * Previous Reference Interval: (Glucose: 65-99 mg/dL)
+
+    Lipid Panel
+          Test                                                Current Result and Flag             Previous Result and Date                       Units               Reference Interval
+          Cholesterol, Total         01
+                                                               133                                  149                07/12/2022               mg/dL                     100-199
+          Triglycerides 01                                     74                                    91                07/12/2022               mg/dL                       0-149
+          HDL Cholesterol 01                                   33                 Low                32                07/12/2022               mg/dL                        >39
+          VLDL Cholesterol Cal                                 15                                    17                07/12/2022               mg/dL                       5-40
+          LDL Chol Calc (NIH)                                  85                                   100                07/12/2022
 """
+
+style_patterns = [
+  r'TESTS\s+RESULT\s+FLAG\s+UNITS\s+REFERENCE INTERVAL\s+LAB',
+  r'Test\s+Current Result and Flag\s+Previous Result and Date\s+Units\s+Reference Interval',
+]
 
 printer = printers[args.style]
 tests = list()
@@ -346,39 +390,82 @@ for path in args.paths:
   if os.path.exists(path):
     if not os.path.isdir(path):
       text = pdf_to_text(path)
-  
-      match = re.search(r'Date\s+collected:\s+(\d{2}/\d{2}/\d{4})\b', text)
+
+      # determine collection date
+      test_date = None
+      match = re.search(r'Date\s+collected:\s+(\d{2}/\d{2}/\d{4})\b', text, flags=re.IGNORECASE)
       if match:
         test_date = datetime.datetime.strptime(match.group(1), '%m/%d/%Y').strftime('%Y-%m-%d')
-  
+
+      # determine report style because columns are different
+      style = None
+      style_matches = [pos for (pos, pattern) in enumerate(style_patterns) if re.search(pattern, text)]
+      if len(style_matches) == 1:
+        style = style_matches[0]
+      else:
+        log.warning(f'Could not determine style of {path!r}')
+        continue
+
+      log.info(f'{path!r} {test_date=} {style=}')
+
       pos = 0
       while pos < len(text):
+        result = None
+        flag = None
+        units = None
+        reference_interval = None
+        lab = None
+
         (pos, test_name) = parse_test(pos, text)
         if test_name is not None:
           log.debug(f'Encountered test {test_name!r}')
-          (pos, result) = parse_regex(pos, text, r'^(\d+(\.\d+)?)\b')
-          if result is not None:
-            log.info(f'{test_name=!r} {result=}')
-            (pos, flag) = parse_regex(pos, text, r'^(Low|High)\b')
-            if flag is not None:
-              log.info(f'{test_name=!r} {result=}, {flag=!r}')
-            (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
-            if units is not None:
-              log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}')
-              (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s+-\s+\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
-              if reference_interval is not None:
-                log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}')
-                (pos, lab) = parse_regex(pos, text, r'^(01)\b')
-                log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}, {lab=!r}')
-                tests.append({
-                  'date': test_date,
-                  'test': test_name,
-                  'result': result,
-                  'flag': flag,
-                  'units': units,
-                  'reference interval': reference_interval,
-                  'lab': lab,
-                })
+          if style == 0:
+            (pos, result) = parse_regex(pos, text, r'^(\d+(\.\d+)?)\b')
+            if result is not None:
+              log.info(f'{test_name=!r} {result=}')
+              (pos, flag) = parse_regex(pos, text, r'^(Low|High)\b')
+              if flag is not None:
+                log.info(f'{test_name=!r} {result=}, {flag=!r}')
+              (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
+              if units is not None:
+                log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}')
+                (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s+-\s+\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
+                if reference_interval is not None:
+                  log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}')
+                  (pos, lab) = parse_regex(pos, text, r'^(01)\b')
+                  log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}, {lab=!r}')
+          elif style == 1:
+            (pos, lab) = parse_regex(pos, text, r'^(01)\b')
+            log.info(f'{test_name=!r} {lab=!r}')
+            (pos, result) = parse_regex(pos, text, r'^(\d+(\.\d+)?)\b')
+            if result is not None:
+              log.info(f'{test_name=!r} {result=}, {lab=!r}')
+              (pos, flag) = parse_regex(pos, text, r'^(Low|High)\b')
+              if flag is not None:
+                log.info(f'{test_name=!r} {result=}, {flag=!r}, {lab=!r}')
+              (pos, prev_result) = parse_regex(pos, text, r'^(\d+(\.\d+)?\*?)\s')
+              if prev_result is not None:
+                log.info(f'{test_name=!r} {result=}, {flag=!r}, {prev_result=}, {lab=!r}')
+                (pos, prev_date) = parse_regex(pos, text, r'^(\d{2}/\d{2}/\d{4})\b')
+                if prev_date is not None:
+                  log.info(f'{test_name=!r} {result=}, {flag=!r}, {prev_result=}, {prev_date=}, {lab=!r}')
+                  (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
+                  if units is not None:
+                    log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {prev_result=}, {prev_date=}, {lab=!r}')
+                    (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s*-\s*\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
+                    if reference_interval is not None:
+                      log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {reference_interval=}, {prev_result=}, {prev_date=}, {lab=!r}')
+
+          if reference_interval:
+            tests.append({
+              'date': test_date,
+              'test': test_name,
+              'result': result,
+              'flag': flag,
+              'units': units,
+              'reference interval': reference_interval,
+              'lab': lab,
+            })
     else:
       parser.error(f'Cannot open directory {path!r}')
   else:
