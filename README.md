@@ -19,12 +19,12 @@ options:
 
 ### Requirements
 - A Python 3 interpreter.  If you don't already have one, what's wrong with you?
-- The `pdftotext` command.  As per [these installation instructions](https://www.linuxuprising.com/2019/05/how-to-convert-pdf-to-text-on-linux-gui.html#:~:text=Convert%20PDF%20to%20text%20with%20pdftotext%20(command%20line)), I installed the command on Ubuntu with:
+- The `pdftotext` command.  As per [these installation instructions](https://www.linuxuprising.com/2019/05/how-to-convert-pdf-to-text-on-linux-gui.html#:~:text=Convert%20PDF%20to%20text%20with%20pdftotext%20(command%20line)), I tried to install the command on Ubuntu with:
     ```
     sudo apt install poppler-utils
     ```
-    I have Ubuntu 20 and apparently the package was already installed but I don't remember ever doing it.
-
+    I have Ubuntu 20 and apparently the package was already installed but I don't remember ever doing it.  I don't think I've ever used commands from the package before.
+  
     You can read more about the package and its other commands at https://www.xpdfreader.com/about.html.
 
 ### Examples
