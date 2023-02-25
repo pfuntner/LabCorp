@@ -10,8 +10,7 @@ import signal
 import logging
 import argparse
 import datetime
-
-from pdfreader import PDFDocument, SimplePDFViewer
+import subprocess
 
 class Table(object):
     """
@@ -77,6 +76,24 @@ class Table(object):
         """
 
         print(str(self))
+
+
+def pdf_to_text(path):
+  """
+  Use the pdftotext command to parse a report and return stdout as a single string
+  """
+
+  try:
+    p = subprocess.Popen(['pdftotext', '-layout', path, '-'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  except Exception as e:
+    log.fatal(f'Could not run pdftotext - perhaps it needs to be installed? {e!s}')
+    exit(1)
+
+  (stdout, stderr) = tuple([s.decode('utf-8') for s in p.communicate()])
+  rc = p.wait()
+
+  return stdout
+
 
 def tabular_printer():
   table = Table('Date', 'Test', 'Result', 'Flag', 'Units', 'Reference Interval', 'Lab')
@@ -327,11 +344,7 @@ tests = list()
 for path in args.paths:
   if os.path.exists(path):
     if not os.path.isdir(path):
-      text_list = list()
-      with open(path, 'rb') as stream:
-        for canvas in SimplePDFViewer(stream):
-          text_list.append(' '.join(canvas.strings).strip())
-      text = ' '.join(text_list)
+      text = pdf_to_text(path)
   
       match = re.search(r'Date\s+collected:\s+(\d{2}/\d{2}/\d{4})\b', text)
       if match:
