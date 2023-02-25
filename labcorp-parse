@@ -222,7 +222,7 @@ def parse_regex(pos, text, pattern):
   """
 
   log.debug(f'parse_regex() returning ({pos}, {ret!r})')
-  return (pos, ret)
+  return (pos, spaces.sub(' ', ret) if ret else ret)
 
 """
 Old reports:
@@ -340,6 +340,7 @@ Old reports:
 
 printer = printers[args.style]
 tests = list()
+spaces = re.compile(r'\s{2,}')
 
 for path in args.paths:
   if os.path.exists(path):
