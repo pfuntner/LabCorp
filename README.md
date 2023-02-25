@@ -2,6 +2,20 @@
 This repository has a Python script to process LabCorp PDF reports, parse out the significant health metrics, and render them in convenient summaries using a style of your choosing.
 
 ### Syntax
+```commandline
+usage: labcorp-parse [-h] [-s {tabular,json,csv}] [-v] path [path ...]
+
+Parse LabCorp result PDF files
+
+positional arguments:
+  path                  One or more paths to LabCorp result PDF file
+
+options:
+  -h, --help            show this help message and exit
+  -s {tabular,json,csv}, --style {tabular,json,csv}
+                        Print style
+  -v, --verbose         Enable debugging
+```
 
 ### Requirements
 - A Python 3 interpreter.  If you don't already have one, what's wrong with you?
@@ -191,15 +205,19 @@ Date,Test,Result,Flag,Units,Reference Interval,Lab
 2020-01-23,LDL Cholesterol Calc,110,High,mg/dL,0 - 99,
 $
 ```
-_Excel_ or _LibreOffice Calc_ can easily open this style of output:
+_Excel_ or _LibreOffice Calc_ can easily open this style of output.
 
-1. When you first try to open the file, LibreOffice Calc will ask you how you want it to process the input file.  Make sure you turn on _Comma_ under _Separator Options_:
+##### LibreOffice Calc example
+1. When you first try to open the file, LibreOffice Calc displays a _Text Import_ window asking you how you want it to process the input file.  Make sure you turn on the _Comma_ checkbox under _Separator Options_:
 
-    ![img.png](images/libreoffice calc open prompt.png)
+    <img src="images/libreoffice calc open prompt.png" width="350" height="400">
 
-    You can see that LibreOffice Calc is showing a preview of what the columns will look like if it opened the file as specified.
+    At the bottom of the window, you can see that LibreOffice Calc is showing a preview of what the columns will look like if it opened the file as specified.
 
-    I guess I didn't even realize you could have multiple separators so I didn't notice that _Other_ was still being used to.
+    I didn't even realize you could have multiple separators and I didn't notice that _Other_ was still being used too.  They are checkboxes, after all - not radio buttons!  I probably would have turned off _Other_ if I had noticed but it makes no difference because there are none of those characters in the input file.
 2. After you select the separator, press the _Ok_ button and let the spreadsheet do its magic!
 
-    ![img.png](images/libreoffice calc open.png)
+    <img src="images/libreoffice calc open.png" width="450" height="400">
+
+##### Excel
+I don't have an example of opening a CSV file in Excel but I expect it's similar and you can probably Google for an example online. 
