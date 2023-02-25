@@ -1,0 +1,373 @@
+#! /usr/bin/env python3
+
+import os
+import re
+import sys
+import csv
+import json
+import string
+import signal
+import logging
+import argparse
+import datetime
+
+from pdfreader import PDFDocument, SimplePDFViewer
+
+class Table(object):
+    """
+    A class the produces pretty tabular output - nicely alinged rows and columns
+    """
+    def __init__(self, *headings, banner=False):
+        """
+        Constructor that initializes the Table class
+
+        Args:
+            headings: A list of objects for the headings of the columns.  The number
+            of headings must match the number of cells in each row.
+        """
+        # `self.data` is a list that contains all the cells in the table, including the headings
+        self.data = [ [str(heading) for heading in headings] ]
+
+        # `self.widths` contains the widths of each column - the maximum width of each cell in a column
+        self.widths = [len(heading) for heading in self.data[0]]
+
+        if banner:
+          self.banner = '=' if banner == True else banner
+        else:
+          self.banner = False
+
+
+    def add(self, *columns):
+        """
+        Adds a row to the table
+
+        Args:
+            columns: A list of objects for the cells in the row.
+        """
+
+        # assure the number of cells matches the number of headings
+        assert len(columns) == len(self.data[0])
+
+        self.data.append(list(map(str, columns)))
+
+        # recalculate the maximum columns widths
+        for (column_number, column) in enumerate(columns):
+            self.widths[column_number] = max(self.widths[column_number], len(column))
+
+    def __str__(self):
+        """
+        Formats the rows (including headings) and columns aligned according to
+        the maximum width of each column
+        """
+        ret = list()
+
+        if self.banner:
+          self.data.insert(1, [self.banner * self.widths[col_num] for col_num in range(len(self.data[0]))])
+          self.banner = False
+
+        for row_num in range(len(self.data)):
+            ret.append(('  '.join([self.data[row_num][col_num].ljust(self.widths[col_num]) for col_num in range(len(self.data[0]))])).rstrip())
+
+        return '\n'.join(ret)
+
+    def close(self):
+        """
+        Completes the table and prints out all the rows (including headings) and columns aligned according to
+        the maximum width of each column
+        """
+
+        print(str(self))
+
+def tabular_printer():
+  table = Table('Date', 'Test', 'Result', 'Flag', 'Units', 'Reference Interval', 'Lab')
+  for curr in tests:
+    table.add(
+      curr['date'],
+      curr['test'],
+      curr['result'],
+      curr['flag'] or '',
+      curr['units'] or '',
+      curr['reference interval'],
+      curr['lab'] or '',
+    )
+  table.close()
+
+def json_printer():
+  json.dump(tests, sys.stdout, indent=2)
+  print()
+
+def csv_printer():
+  writer = csv.writer(sys.stdout)
+  writer.writerow(['Date', 'Test', 'Result', 'Flag', 'Units', 'Reference Interval', 'Lab'])
+  for curr in tests:
+    writer.writerow([
+      curr['date'],
+      curr['test'],
+      curr['result'],
+      curr['flag'] or '',
+      curr['units'] or '',
+      curr['reference interval'],
+      curr['lab'] or '',
+    ])
+
+printers = {re.sub(r'_printer$', '', name): function for (name, function) in globals().items() if name.endswith("_printer")}
+DEFAULT_PRINTER = list(printers.keys())[0]
+
+parser = argparse.ArgumentParser(description='Parse LabCorp result PDF files')
+parser.add_argument('-s', '--style', default=DEFAULT_PRINTER, choices=list(printers.keys()), help='Print style')
+parser.add_argument('-v', '--verbose', action='count', help='Enable debugging')
+parser.add_argument('paths', metavar='path', nargs='+', help='One or more paths to LabCorp result PDF file')
+args = parser.parse_args()
+
+logging.basicConfig(format='%(asctime)s %(levelname)s %(pathname)s:%(lineno)d %(msg)s')
+log = logging.getLogger(sys.argv[0])
+log.setLevel(logging.WARNING - (args.verbose or 0)*10)
+
+signal.signal(signal.SIGPIPE, lambda signum, stack_frame: exit(0))
+
+"""
+TESTS                 RESULT       FLAG           UNITS     REFERENCE INTERVAL     LAB
+Glucose                    99                     mg/dL         65 - 99             01
+eGFR If NonAfricn Am       81                  mL/min/1.73          >59
+BUN/Creatinine Ratio       14                                    9 - 20
+Carbon Dioxid, Total       19      Low            mmol/L        20 - 29             01
+"""
+
+test_names = [
+  'Glucose',
+  'BUN',
+  'Creatinine',
+  'eGFR If NonAfricn Am',
+  'eGFR If Africn Am',
+  'BUN/Creatinine Ratio',
+  'Sodium',
+  'Potassium',
+  'Chloride',
+  'Carbon Dioxide, Total',
+  'Calcium',
+  'Protein, Total',
+  'Albumin',
+  'Globulin, Total',
+  'A/G Ratio',
+  'Bilirubin, Total',
+  'Alkaline Phosphatase',
+  'AST (SGOT)',
+  'ALT (SGPT)',
+  'Cholesterol, Total',
+  'Triglycerides',
+  'HDL Cholesterol',
+  'VLDL Cholesterol Cal',
+  'LDL Cholesterol Calc',
+]
+
+def parse_test(pos, text):
+  ret = None
+
+  while pos < len(text) and text[pos] in string.whitespace:
+    pos += 1
+
+  if pos < len(text):
+    log.debug(f'Looking for test name at {pos} {text[pos:pos+25] + "..."!r}')
+    for test_name in test_names:
+      log.debug(f'Testing {text[pos:pos+len(test_name)]!r} for {test_name!r}')
+      if text[pos:pos+len(test_name)] == test_name:
+        ret = test_name
+        pos += len(ret)
+        break
+
+  if ret is None:
+    while pos < len(text) and text[pos] not in string.whitespace:
+      pos += 1
+
+  log.debug(f'parse_text() returning ({pos}, {ret!r})')
+  return (pos, ret)
+
+def parse_regex(pos, text, pattern):
+  ret = None
+
+  while pos < len(text) and text[pos] in string.whitespace:
+    pos += 1
+
+  if pos < len(text):
+    log.debug(f'Looking for {pattern!r} at {pos} {text[pos:pos+25] + "..."!r}')
+    match = re.search(pattern, text[pos:])
+    if match:
+      ret = match.group(1)
+      pos += len(ret)
+
+  """
+  We don't want to advance pos if ret is None.  The caller might
+  be looking for an optional column and the position might match
+  the next regular expression.
+
+  If the column is required, we'll try to parse out the token
+  as a new test and it might fail but that's fine.
+  """
+
+  log.debug(f'parse_regex() returning ({pos}, {ret!r})')
+  return (pos, ret)
+
+"""
+Old reports:
+  Rendering:
+    Tests                  Result  Flag     Units     Reference Interval  Lab
+    Glucose                    99           mg/dL          65 - 99         01
+    eGFR If NonAfricn Am       81        mL/min/1.73         >59
+    BUN/Creatinine Ratio       14                           9 - 20
+    Carbon Dioxide, Total      19   Low    mmol/L          20 - 29         01
+
+  Extraction:
+    Index        String
+    000000001383 'Glucose'
+    000000001423 '99'
+    000000001426 'mg/dL'
+    000000001436 '65'
+    000000001441 '99'
+    000000001444 '01'
+    000000001450 'BUN'
+    000000001490 '14'
+    000000001493 'mg/dL'
+    000000001504 '6'
+    000000001508 '24'
+    000000001511 '01'
+    000000001517 'Creatinine'
+    000000001555 '1.02'
+    000000001560 'mg/dL'
+    000000001568 '0.76'
+    000000001575 '1.27'
+    000000001580 '01'
+    000000001586 'eGFR'
+    000000001591 'If'
+    000000001594 'NonAfricn'
+    000000001604 'Am'
+    000000001626 '81'
+    000000001629 'mL/min/1.73'
+    000000001650 '59'
+    000000001656 'eGFR'
+    000000001661 'If'
+    000000001664 'Africn'
+    000000001671 'Am'
+    000000001696 '94'
+    000000001699 'mL/min/1.73'
+    000000001720 '59'
+    000000001726 'BUN/Creatinine'
+    000000001741 'Ratio'
+    000000001766 '14'
+    000000001774 '9'
+    000000001778 '20'
+    000000001784 'Sodium'
+    000000001823 '141'
+    000000001827 'mmol/L'
+    000000001837 '134'
+    000000001843 '144'
+    000000001847 '01'
+    000000001853 'Potassium'
+    000000001892 '4.9'
+    000000001896 'mmol/L'
+    000000001906 '3.5'
+    000000001912 '5.2'
+    000000001916 '01'
+    000000001922 'Chloride'
+    000000001961 '104'
+    000000001965 'mmol/L'
+    000000001976 '96'
+    000000001981 '106'
+    000000001985 '01'
+    000000001991 'Carbon'
+    000000001998 'Dioxide'
+    000000002007 'Total'
+    000000002031 '19'
+    000000002037 'Low'
+    000000002041 'mmol/L'
+    000000002052 '20'
+    000000002057 '29'
+    000000002060 '01'
+    000000002066 'Calcium'
+    000000002105 '9.6'
+    000000002109 'mg/dL'
+    000000002118 '8.7'
+    000000002124 '10.2'
+    000000002129 '01'
+    000000002135 'Protein'
+    000000002144 'Total'
+    000000002174 '6.9'
+    000000002178 'g/dL'
+    000000002186 '6.0'
+    000000002192 '8.5'
+    000000002196 '01'
+    000000002202 'Albumin'
+    000000002241 '4.4'
+    000000002245 'g/dL'
+    000000002253 '3.5'
+    000000002259 '5.5'
+    000000002263 '01'
+    000000002269 'Globulin'
+    000000002279 'Total'
+    000000002308 '2.5'
+    000000002312 'g/dL'
+    000000002320 '1.5'
+    000000002326 '4.5'
+    000000002333 'A/G'
+    000000002337 'Ratio'
+    000000002372 '1.8'
+    000000002379 '1.2'
+    000000002385 '2.2'
+    000000002392 'Bilirubin'
+    000000002403 'Total'
+    000000002431 '0.4'
+    000000002435 'mg/dL'
+    000000002444 '0.0'
+    000000002450 '1.2'
+    000000002454 '01'
+"""
+
+printer = printers[args.style]
+tests = list()
+
+for path in args.paths:
+  if os.path.exists(path):
+    if not os.path.isdir(path):
+      text_list = list()
+      with open(path, 'rb') as stream:
+        for canvas in SimplePDFViewer(stream):
+          text_list.append(' '.join(canvas.strings).strip())
+      text = ' '.join(text_list)
+  
+      match = re.search(r'Date\s+collected:\s+(\d{2}/\d{2}/\d{4})\b', text)
+      if match:
+        test_date = datetime.datetime.strptime(match.group(1), '%m/%d/%Y').strftime('%Y-%m-%d')
+  
+      pos = 0
+      while pos < len(text):
+        (pos, test_name) = parse_test(pos, text)
+        if test_name is not None:
+          log.debug(f'Encountered test {test_name!r}')
+          (pos, result) = parse_regex(pos, text, r'^(\d+(\.\d+)?)\b')
+          if result is not None:
+            log.info(f'{test_name=!r} {result=}')
+            (pos, flag) = parse_regex(pos, text, r'^(Low|High)\b')
+            if flag is not None:
+              log.info(f'{test_name=!r} {result=}, {flag=!r}')
+            (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
+            if units is not None:
+              log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}')
+              (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s+-\s+\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
+              if reference_interval is not None:
+                log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}')
+                (pos, lab) = parse_regex(pos, text, r'^(01)\b')
+                log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}, {lab=!r}')
+                tests.append({
+                  'date': test_date,
+                  'test': test_name,
+                  'result': result,
+                  'flag': flag,
+                  'units': units,
+                  'reference interval': reference_interval,
+                  'lab': lab,
+                })
+    else:
+      parser.error(f'Cannot open directory {path!r}')
+  else:
+    parser.error(f'Cannot find {path!r}')
+
+printer()
