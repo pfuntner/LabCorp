@@ -188,7 +188,7 @@ test_names = [
   'VLDL Cholesterol Cal',
 ]
 
-def parse_test(pos, text):
+def parse_test_name(pos, text):
   ret = None
 
   while pos < len(text) and text[pos] in string.whitespace:
@@ -199,7 +199,7 @@ def parse_test(pos, text):
     for test_name in test_names:
       log.debug(f'Testing {text[pos:pos+len(test_name)]!r} for {test_name!r}')
       if text[pos:pos+len(test_name)] == test_name:
-        ret = test_name
+        ret = serum_regex.sub('', test_name)
         pos += len(ret)
         break
 
@@ -233,7 +233,7 @@ def parse_regex(pos, text, pattern):
   """
 
   log.debug(f'parse_regex() returning ({pos}, {ret!r})')
-  return (pos, spaces.sub(' ', ret).replace('-', ' - ') if ret else ret)
+  return (pos, spaces_regex.sub(' ', ret).replace('-', ' - ') if ret else ret)
 
 """
 Style 0, 2019-09-xx:
@@ -393,7 +393,8 @@ style_patterns = [
 
 printer = printers[args.style]
 tests = list()
-spaces = re.compile(r'\s{2,}')
+spaces_regex = re.compile(r'\s{2,}')
+serum_regex = re.compile(r', S(erum)?$')
 
 for path in args.paths:
   if os.path.exists(path):
@@ -425,7 +426,7 @@ for path in args.paths:
         reference_interval = None
         lab = None
 
-        (pos, test_name) = parse_test(pos, text)
+        (pos, test_name) = parse_test_name(pos, text)
         if test_name is not None:
           log.debug(f'Encountered test {test_name!r}')
           if style == 0:
