@@ -428,6 +428,8 @@ for path in args.paths:
         units = None
         reference_interval = None
         lab = None
+        prev_result = None
+        prev_date = None
 
         (pos, test_name) = parse_test_name(pos, text)
         if test_name is not None:
@@ -442,7 +444,7 @@ for path in args.paths:
               (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
               if units is not None:
                 log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}')
-                (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s+-\s+\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
+                (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s*-\s*\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
                 if reference_interval is not None:
                   log.info(f'{test_name=!r} {result=}, {flag=!r}, {units=!r}, {reference_interval=!r}')
                   (pos, lab) = parse_regex(pos, text, r'^(01)\b')
@@ -457,17 +459,20 @@ for path in args.paths:
               if flag is not None:
                 log.info(f'{test_name=!r} {result=}, {flag=!r}, {lab=!r}')
               (pos, prev_result) = parse_regex(pos, text, r'^(\d+(\.\d+)?\*?)\s')
+
+              # the "previous result" columns are optional and might not be present, especially for the first report in this new style
               if prev_result is not None:
                 log.info(f'{test_name=!r} {result=}, {flag=!r}, {prev_result=}, {lab=!r}')
                 (pos, prev_date) = parse_regex(pos, text, r'^(\d{2}/\d{2}/\d{4})\b')
                 if prev_date is not None:
                   log.info(f'{test_name=!r} {result=}, {flag=!r}, {prev_result=}, {prev_date=}, {lab=!r}')
-                  (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
-                  if units is not None:
-                    log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {prev_result=}, {prev_date=}, {lab=!r}')
-                    (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s*-\s*\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
-                    if reference_interval is not None:
-                      log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {reference_interval=}, {prev_result=}, {prev_date=}, {lab=!r}')
+
+              (pos, units) = parse_regex(pos, text, r'^([^/ ]+/\S+)\b')
+              if units is not None:
+                log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {prev_result=}, {prev_date=}, {lab=!r}')
+                (pos, reference_interval) = parse_regex(pos, text, r'^((\d+(\.\d+)?\s*-\s*\d+(\.\d+)?)|(>\d+(\.\d+)?))\b')
+                if reference_interval is not None:
+                  log.info(f'{test_name=!r} {result=}, {units=}, {flag=!r}, {reference_interval=}, {prev_result=}, {prev_date=}, {lab=!r}')
 
           if reference_interval:
             tests.append({
