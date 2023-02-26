@@ -199,11 +199,14 @@ def parse_test_name(pos, text):
     for test_name in test_names:
       log.debug(f'Testing {text[pos:pos+len(test_name)]!r} for {test_name!r}')
       if text[pos:pos+len(test_name)] == test_name:
-        ret = serum_regex.sub('', test_name)
+        ret = test_name
         pos += len(ret)
         break
 
-  if ret is None:
+  if ret is not None:
+    ret = serum_regex.sub('', ret)
+  else:
+    # we didn't find a test name, let's try the next token
     while pos < len(text) and text[pos] not in string.whitespace:
       pos += 1
 
