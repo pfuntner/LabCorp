@@ -236,7 +236,7 @@ def parse_regex(pos, text, pattern):
   """
 
   log.debug(f'parse_regex() returning ({pos}, {ret!r})')
-  return (pos, spaces_regex.sub(' ', ret).replace('-', ' - ') if ret else ret)
+  return (pos, spaces_regex.sub(' ', ret.replace('-', ' - ')) if ret else ret)
 
 """
 Style 0, 2019-09-xx:
