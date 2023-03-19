@@ -489,4 +489,5 @@ for path in args.paths:
   else:
     parser.error(f'Cannot find {path!r}')
 
+tests.sort(key=lambda test: f"{test['test']}/{test['date']}")
 printer()
