@@ -44,7 +44,9 @@ LDL_Cholesterol_Calc.png
 $
 ```
 
+The output are the names of the image files produced.
+
 #### Sample plot file
 ![Cholesterol,_Total.png](images%2FCholesterol%2C_Total.png)
 
-The horizontal dotted lines represent the minimum and maximum healthy values for each test. Occasionally, I've noticed changes in this range over results so you might see the line change over time.
+The horizontal dotted lines represent the minimum and/or maximum healthy values for each test. If there's only one dotted line, there is only a minimum healthy value.  Occasionally, I've noticed changes in this range over results so you might see a line _shift_ over time.  I suppose healthy recommendations might change over time.

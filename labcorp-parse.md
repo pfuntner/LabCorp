@@ -22,7 +22,7 @@ options:
 #### Default (fixed tabular output)
 This is a great choice for reading by a human.
 ```commandline
-$ ./labcorp-parse 2019-09-25.pdf 2020-01-23.pdf 
+$ ./labcorp-parse 2019-09-25.pdf 2020-01-23.pdf
 Date        Test                   Result  Flag  Units        Reference Interval  Lab
 2019-09-24  Glucose                99            mg/dL        65 - 99             01
 2019-09-24  BUN                    14            mg/dL        6 - 24              01
@@ -72,7 +72,7 @@ $
 ```
 
 #### JSON
-JSON is a format style that is easily processed by computers (especially Python scripts) while still being pretty readable by humans. 
+JSON is a format style that is easily processed by computers (especially Python scripts) while still being pretty readable by humans.
 ```commandline
 $ ./labcorp-parse --style json 2019-09-25.pdf 2020-01-23.pdf  | headtail -40 -n
 [
@@ -128,7 +128,7 @@ Type "help", "copyright", "credits" or "license" for more information.
 >>> import json
 >>> with open('labcorp.json') as stream:
 ...   report = json.load(stream)
-... 
+...
 >>> len(report)
 44
 >>> report[0]
@@ -143,7 +143,7 @@ Type "help", "copyright", "credits" or "license" for more information.
   "units": "mg/dL",
   "reference interval": "65 - 99",
   "lab": "01"
-}>>> 
+}>>>
 ```
 
 #### CSV
@@ -205,9 +205,9 @@ _Excel_ or _LibreOffice Calc_ can easily open this style of output.
     At the bottom of the window, you can see that LibreOffice Calc is showing a preview of what the columns will look like if it opened the file as specified.
 
     I didn't even realize you could have multiple separators and I didn't notice that _Other_ was still being used too.  They are checkboxes, after all - not radio buttons!  I probably would have turned off _Other_ if I had noticed but it makes no difference because there are none of those characters in the input file.
-2. After you select the separator, press the _Ok_ button and let the spreadsheet do its magic!
+2. After you select the separator, press the _Ok_ button and let the spreadsheet app do its magic!
 
     <img src="images/libreoffice calc open.png" width="450" height="400">
 
 ##### Excel
-I don't have an example of opening a CSV file in Excel but I expect it's similar and you can probably Google for an example online. 
+I don't have an example of opening a CSV file in Excel but I expect it's similar, not difficult, and you can probably search the Internet for an example online.

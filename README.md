@@ -3,10 +3,10 @@ This repository has a Python scripts to process [LabCorp PDF reports](https://pa
 
 ### Scripts
 - [`labcorp-parse`](labcorp-parse.md): Parses one or more reports and produces a summary in any of the following forms:
-    - Tabular text
+    - Tabular text, standardized output, pleasing to the eye
     - CSV: Comma-separated values, excellent for importing into a spreadsheet app
     - JSON: Another style of storing data, excellent for processing my scripts, apps, etc
-- [`labcorp-plot`](labcorp-plot.md): Plots results in PNG images
+- [`labcorp-plot`](labcorp-plot.md): Plots results in PNG images, requires results from `labcorp-parse` stored in JSON format
 
 ### Requirements
 - A Python 3 interpreter.  If you don't already have one, what's wrong with you?
@@ -14,7 +14,7 @@ This repository has a Python scripts to process [LabCorp PDF reports](https://pa
     ```
     sudo apt install poppler-utils
     ```
-    I have Ubuntu 20 and apparently the package was already installed but I don't remember ever doing it.  I don't think I've ever used commands from the package before.
-  
+    I have Ubuntu 24 and apparently the package was already installed but I don't remember ever doing it.  I don't think I've ever used commands from the package before.
+
     You can read more about the package and its other commands at https://www.xpdfreader.com/about.html.
-- `labcorp-plot` requires the [`mathplotlib`](https://matplotlib.org/stable/index.html) Python package
+- `labcorp-plot` requires the [`mathplotlib`](https://matplotlib.org/stable/index.html) Python package.  You might wish to install this in a Python virtual environment.
